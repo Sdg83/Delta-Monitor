@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>DELTA Monitor PRO</title>
 
 <style>
@@ -17,47 +18,94 @@ body::after{
   content:'';
   position:fixed;
   inset:0;
-  background:rgba(5,13,20,0.65);
+  background:rgba(5,13,20,0.7);
 }
 
 .container{position:relative;z-index:2;padding:15px;max-width:900px;margin:auto;}
 .card{background:rgba(0,0,0,0.55);border-radius:10px;padding:15px;margin-bottom:15px;}
 
-.river{position:relative;height:320px;border-radius:10px;overflow:hidden;background:linear-gradient(to top,#6fb7d6,#3c7fa3);}
-.water{position:absolute;bottom:0;width:100%;transition:1s;}
+.riverBox{
+  display:flex;
+  gap:20px;
+  align-items:flex-end;
+}
+
+/* REGLA */
+.scale{
+  position:relative;
+  width:60px;
+  height:300px;
+  border-left:3px solid #aaa;
+}
+
+.scale span{
+  position:absolute;
+  left:5px;
+  font-size:12px;
+  color:#ccc;
+}
+
+/* AGUA */
+.waterBox{
+  position:relative;
+  flex:1;
+  height:300px;
+  border-radius:10px;
+  overflow:hidden;
+  background:linear-gradient(to top,#6fb7d6,#3c7fa3);
+}
+
+.water{
+  position:absolute;
+  bottom:0;
+  width:100%;
+  transition:1s;
+}
 
 .water.low{background:#4da6ff;}
 .water.mid{background:#e6c84f;}
 .water.high{background:#d9534f;}
 
-.waves{
+.value{
   position:absolute;
-  bottom:0;
-  width:200%;
-  height:50px;
-  background:rgba(255,255,255,0.2);
-  animation:wave 4s linear infinite;
+  top:10px;
+  left:10px;
+  font-size:2rem;
+  font-weight:bold;
 }
 
-@keyframes wave{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+.info{
+  position:absolute;
+  top:50px;
+  left:10px;
+}
 
-.value{position:absolute;top:20px;left:20px;font-size:2.5rem;font-weight:900;}
-.info{position:absolute;top:70px;left:20px;}
+.grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
 
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.item{background:rgba(0,0,0,0.5);padding:10px;border-radius:8px;text-align:center;}
+.item{
+  background:rgba(0,0,0,0.5);
+  padding:10px;
+  border-radius:8px;
+  text-align:center;
+}
+
 .big{font-size:1.4rem;}
 
 .alert{
   margin-top:10px;
-  font-weight:bold;
   padding:10px;
   border-radius:6px;
   text-align:center;
+  font-weight:bold;
 }
-.alert.ok{background:#0f5132;}
-.alert.warn{background:#664d03;}
-.alert.danger{background:#842029;}
+
+.ok{background:#0f5132;}
+.warn{background:#664d03;}
+.danger{background:#842029;}
 </style>
 </head>
 
@@ -68,17 +116,26 @@ body::after{
 <h2>🌊 DELTA Monitor PRO</h2>
 
 <div class="card">
-  <div class="river">
-    <div class="water" id="water"></div>
-    <div class="waves"></div>
 
-    <div class="value" id="level">--</div>
-    <div class="info" id="info">Cargando...</div>
-  </div>
+<div class="riverBox">
 
-  <div class="alert ok" id="alert">Inicializando...</div>
+<!-- ESCALA -->
+<div class="scale" id="scale"></div>
+
+<!-- AGUA -->
+<div class="waterBox">
+  <div class="water" id="water"></div>
+  <div class="value" id="level">--</div>
+  <div class="info" id="info">Cargando...</div>
 </div>
 
+</div>
+
+<div class="alert ok" id="alert">Inicializando...</div>
+
+</div>
+
+<!-- DATOS -->
 <div class="grid">
   <div class="item">🌡️ Temp<div class="big" id="temp"></div></div>
   <div class="item">💧 Humedad<div class="big" id="hum"></div></div>
@@ -88,30 +145,24 @@ body::after{
   <div class="item">📊 Tendencia<div class="big" id="trend"></div></div>
 </div>
 
+<!-- PRONOSTICO -->
+<div class="card">
+  <h3>📅 Pronóstico 24h</h3>
+  <div id="forecast"></div>
+</div>
+
 </div>
 
 <script>
 let lastLevel=null;
-let lastAlert="";
 
-/* sonido alerta */
-function beep(){
-  try{
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = ctx.createOscillator();
-    o.type="sine";
-    o.frequency.setValueAtTime(600,ctx.currentTime);
-    o.connect(ctx.destination);
-    o.start();
-    setTimeout(()=>o.stop(),200);
-  }catch{}
-}
-
-/* vibración */
-function vibrate(){
-  if(navigator.vibrate){
-    navigator.vibrate([200,100,200]);
-  }
+/* escala */
+const scale = document.getElementById("scale");
+for(let i=0;i<=300;i+=50){
+  const s=document.createElement("span");
+  s.style.bottom=(i/300*100)+"%";
+  s.innerText=i+"cm";
+  scale.appendChild(s);
 }
 
 function dirLabel(d){
@@ -119,25 +170,19 @@ function dirLabel(d){
   return dirs[Math.round(d/45)%8];
 }
 
-async function getWeather(){
-  const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=-34.426&longitude=-58.579&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,wind_direction_10m,pressure_msl");
+async function getData(){
+  const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=-34.426&longitude=-58.579&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,wind_direction_10m,pressure_msl&hourly=temperature_2m,wind_speed_10m");
   return await r.json();
 }
 
-/* MODELO MEJORADO DELTA */
 function calcLevel(p,w,dir){
+  let level=150;
+  level += (1015-p)*2;
 
-  let level = 150;
+  if(w>25) level+=15;
 
-  // presión
-  level += (1015 - p) * 2;
-
-  // viento fuerte
-  if(w > 25) level += 15;
-
-  // SUDESTADA REAL
-  if(dir > 100 && dir < 160){
-    level += w * 1.5;
+  if(dir>100 && dir<160){
+    level+=w*1.5; // sudestada
   }
 
   return level;
@@ -145,8 +190,8 @@ function calcLevel(p,w,dir){
 
 async function update(){
 
-  const data = await getWeather();
-  const c = data.current;
+  const d = await getData();
+  const c = d.current;
 
   const level = calcLevel(c.pressure_msl,c.wind_speed_10m,c.wind_direction_10m);
 
@@ -175,30 +220,24 @@ async function update(){
   document.getElementById("trend").innerText=trend;
 
   /* ALERTAS */
-  let alert="Normal";
-  let cls="ok";
+  let txt="Normal", cls="ok";
 
-  if(level>240){
-    alert="🚨 Crecida fuerte";
-    cls="danger";
-  } else if(level<120){
-    alert="⚠️ Bajante fuerte";
-    cls="warn";
-  } else if(c.wind_direction_10m>100 && c.wind_direction_10m<160 && c.wind_speed_10m>20){
-    alert="🌬️ Sudestada";
-    cls="warn";
+  if(level>240){ txt="🚨 Crecida"; cls="danger"; }
+  else if(level<120){ txt="⚠️ Bajante"; cls="warn"; }
+  else if(c.wind_direction_10m>100 && c.wind_direction_10m<160 && c.wind_speed_10m>20){
+    txt="🌬️ Sudestada"; cls="warn";
   }
 
-  const alertEl = document.getElementById("alert");
-  alertEl.innerText = alert;
-  alertEl.className="alert "+cls;
+  const alert=document.getElementById("alert");
+  alert.innerText=txt;
+  alert.className="alert "+cls;
 
-  /* notificación local */
-  if(alert !== lastAlert){
-    beep();
-    vibrate();
-    lastAlert = alert;
-  }
+  /* PRONOSTICO */
+  const hours=d.hourly.time.slice(0,8);
+  const temps=d.hourly.temperature_2m.slice(0,8);
+
+  document.getElementById("forecast").innerHTML =
+    hours.map((h,i)=>`${new Date(h).getHours()}h ${temps[i]}°`).join(" | ");
 }
 
 update();
