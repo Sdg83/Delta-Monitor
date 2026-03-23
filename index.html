@@ -3,321 +3,149 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DELTA Monitor PRO</title>
+<title>DELTA Monitor PRO REAL</title>
 
 <style>
-body{
-  margin:0;
-  font-family:Arial;
-  color:#e0f0ff;
-  background:url('IMG_9678.jpeg') center/cover no-repeat fixed;
-}
+body{margin:0;font-family:Arial;background:#050d14;color:#e0f0ff;}
+.container{padding:15px;max-width:900px;margin:auto;}
+.card{background:#0a1825;border-radius:10px;padding:15px;margin-bottom:15px;}
 
-body::after{
-  content:'';
-  position:fixed;
-  inset:0;
-  background:rgba(5,13,20,0.75);
-  z-index:0;
-}
+.river{position:relative;height:280px;border-radius:10px;overflow:hidden;background:linear-gradient(to top,#6fb7d6,#3c7fa3);}
+.water{position:absolute;bottom:0;width:100%;transition:1s;background:#4da6ff;}
 
-.container{
-  position:relative;
-  z-index:2;
-  padding:15px;
-  max-width:900px;
-  margin:auto;
-}
-
-.card{
-  background:rgba(0,0,0,0.5);
-  border-radius:10px;
-  padding:15px;
-  margin-bottom:15px;
-}
-
-/* ===== RIO ===== */
-.river{
-  position:relative;
-  height:320px;
-  border-radius:10px;
-  overflow:hidden;
-  background:linear-gradient(to top,#6fb7d6,#3c7fa3);
-}
-
-/* AGUA */
-.water{
-  position:absolute;
-  bottom:0;
-  width:100%;
-  height:40%;
-  transition:1s;
-  background:#4da6ff;
-}
-
-.water.low{ background:#4da6ff;}
-.water.mid{ background:#e6c84f;}
-.water.high{ background:#d9534f;}
-
-.water::after{
-  content:'';
-  position:absolute;
-  top:-12px;
-  width:200%;
-  height:25px;
-  background:rgba(255,255,255,0.25);
-  animation:wave 4s linear infinite;
-  border-radius:50%;
-}
-
-@keyframes wave{
-  from{transform:translateX(0)}
-  to{transform:translateX(-50%)}
-}
-
-/* ===== MUELLE GRANDE ===== */
-.dock{
-  position:absolute;
-  right:60px;
-  bottom:120px; /* elevado */
-}
-
-/* plataforma */
-.deck{
-  width:160px;
-  height:18px;
-  background:repeating-linear-gradient(
-    90deg,
-    #8b5a2b,
-    #8b5a2b 10px,
-    #6e4520 10px,
-    #6e4520 20px
-  );
-  border-radius:4px;
-}
-
-/* patas */
-.legs{
-  width:160px;
-  height:120px;
-  background:#5a3a1f;
-}
-
-/* ===== ESCALERA CON ESCALA ===== */
-.ladder{
-  position:absolute;
-  left:-40px;
-  bottom:0;
-  display:flex;
-  flex-direction:column;
-  align-items:flex-start;
-}
-
-/* peldaños */
-.step{
-  width:25px;
-  height:3px;
-  background:#3b2a1a;
-  margin:6px 0;
-  position:relative;
-}
-
-/* números */
-.step span{
-  position:absolute;
-  left:30px;
-  font-size:10px;
-  color:#fff;
-}
-
-/* TEXTO */
-.value{
-  position:absolute;
-  top:20px;
-  left:20px;
-  font-size:2.5rem;
-  font-weight:900;
-}
-
-.info{
-  position:absolute;
-  top:70px;
-  left:20px;
-  font-size:1.1rem;
-}
-
-.alert{
-  margin-top:10px;
-  font-weight:bold;
-}
-
-/* GRID */
-.grid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-}
-
-.item{
-  background:rgba(0,0,0,0.5);
-  padding:10px;
-  border-radius:8px;
-  text-align:center;
-}
-
-.big{
-  font-size:1.6rem;
-  font-weight:bold;
-}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.item{background:#0f2233;padding:10px;border-radius:8px;text-align:center;}
+.big{font-size:1.6rem;}
+.alert{font-weight:bold;margin-top:10px;}
+#map{height:250px;border-radius:10px;}
 </style>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 </head>
 
 <body>
 
 <div class="container">
 
-<h2>🌊 DELTA Monitor PRO</h2>
+<h2>🌊 DELTA Monitor PRO REAL</h2>
 
 <div class="card">
   <div class="river">
-
     <div class="water" id="water"></div>
-
-    <!-- MUELLE -->
-    <div class="dock">
-      <div class="deck"></div>
-      <div class="legs"></div>
-
-      <!-- ESCALERA CON CM -->
-      <div class="ladder" id="ladder"></div>
-    </div>
-
-    <div class="value" id="level">--</div>
-    <div class="info" id="info">Cargando...</div>
-
+    <div style="position:absolute;top:20px;left:20px;font-size:2rem" id="level">--</div>
+    <div style="position:absolute;top:60px;left:20px" id="source">--</div>
   </div>
-
   <div class="alert" id="alert"></div>
 </div>
 
+<div class="card">
+  <canvas id="chart"></canvas>
+</div>
+
+<div class="card">
+  <div id="map"></div>
+</div>
+
 <div class="grid">
-  <div class="item">🌡️ Temp<div class="big" id="temp">--</div></div>
-  <div class="item">💨 Viento<div class="big" id="wind">--</div></div>
-  <div class="item">💧 Humedad<div class="big" id="hum">--</div></div>
-  <div class="item">🌧️ Lluvia<div class="big" id="rain">--</div></div>
+  <div class="item">🌡️ Temp<div class="big" id="temp"></div></div>
+  <div class="item">💨 Viento<div class="big" id="wind"></div></div>
+  <div class="item">🧭 Dirección<div class="big" id="dir"></div></div>
+  <div class="item">📊 Predominante<div class="big" id="dominant"></div></div>
 </div>
 
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
-let lastLevel=null;
-let lastTime=null;
+let history = JSON.parse(localStorage.getItem("riverHistory") || []);
 
-/* crear escala en cm */
-function buildScale(){
-  const ladder = document.getElementById("ladder");
-  ladder.innerHTML="";
+/* MAPA */
+const map = L.map('map').setView([-34.426,-58.579],12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+L.marker([-34.426,-58.579]).addTo(map);
 
-  for(let i=0;i<=300;i+=20){
-    const step=document.createElement("div");
-    step.className="step";
-
-    const label=document.createElement("span");
-    label.innerText=i+"cm";
-
-    step.appendChild(label);
-    ladder.prepend(step);
-  }
-}
-buildScale();
-
-/* notificaciones */
-function notify(msg){
-  if(Notification.permission==="granted"){
-    new Notification(msg);
-  }
+/* DIRECCION */
+function dirLabel(d){
+  const dirs=["N","NE","E","SE","S","SO","O","NO"];
+  return dirs[Math.round(d/45)%8];
 }
 
-if("Notification" in window){
-  Notification.requestPermission();
+/* DOMINANTE */
+function dominant(){
+  if(history.length<5) return "-";
+  const avg = history.reduce((a,b)=>a+b.dir,0)/history.length;
+  return dirLabel(avg);
 }
 
-/* API */
-async function getData(){
+/* SUDESTADA */
+function sudestada(dir, wind){
+  return (dir>100 && dir<160 && wind>20) ? "🌬️ Sudestada probable" : "Normal";
+}
+
+/* WEATHER */
+async function getWeather(){
+  const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=-34.426&longitude=-58.579&current=temperature_2m,wind_speed_10m,wind_direction_10m,pressure_msl");
+  return r.json();
+}
+
+/* INA REAL (proxy público alternativo) */
+async function getRiverReal(){
   try{
-    const res = await fetch("https://api.open-meteo.com/v1/forecast?latitude=-34.426&longitude=-58.579&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,pressure_msl");
-    return await res.json();
-  }catch(e){
+    const r = await fetch("https://hidro.ina.gob.ar/api/observaciones?estacion=34"); 
+    const j = await r.json();
+    return j[0]?.valor || null;
+  }catch{
     return null;
   }
 }
 
-/* nivel */
-function calcLevel(data){
-  if(!data || !data.current) return lastLevel || 150;
-
-  const p = data.current.pressure_msl || 1015;
-  const r = data.current.precipitation || 0;
-  const w = data.current.wind_speed_10m || 0;
-
-  return 140 + (1015-p)*2 + r*10 + (w>25?15:0);
+/* fallback */
+function calcLevel(p,w){
+  return 140 + (1015-p)*2 + (w>25?15:0);
 }
+
+/* CHART */
+const chart = new Chart(document.getElementById("chart"),{
+  type:"line",
+  data:{labels:[],datasets:[{label:"Nivel",data:[]}]}
+});
 
 async function update(){
 
-  const data = await getData();
+  const weather = await getWeather();
+  const c = weather.current;
 
-  const level = calcLevel(data);
-  const now = Date.now();
+  let level = await getRiverReal();
+  let source="📡 INA (real)";
 
-  let trend="→ Estable";
-  let speed=0;
-
-  if(lastLevel!==null){
-    const diff = level-lastLevel;
-    const hours = (now-lastTime)/3600000;
-    speed = diff/hours;
-
-    if(diff>5){
-      trend="⬆️ Subiendo";
-      notify("⚠️ El río está subiendo rápido");
-    }
-
-    if(diff<-5) trend="⬇️ Bajando";
+  if(!level){
+    level = calcLevel(c.pressure_msl, c.wind_speed_10m);
+    source="⚠️ Estimado";
   }
 
-  lastLevel=level;
-  lastTime=now;
+  document.getElementById("level").innerText = level.toFixed(0)+" cm";
+  document.getElementById("source").innerText = source;
 
-  document.getElementById("level").innerText = Math.round(level)+" cm";
-  document.getElementById("info").innerText = trend+" | "+speed.toFixed(1)+" cm/h";
+  document.getElementById("temp").innerText = c.temperature_2m+"°C";
+  document.getElementById("wind").innerText = c.wind_speed_10m+" km/h";
+  document.getElementById("dir").innerText = dirLabel(c.wind_direction_10m);
 
   const water = document.getElementById("water");
+  water.style.height = Math.min(level/300*100,100)+"%";
 
-  const pct = Math.min(level/300*100,100);
-  water.style.height = pct + "%";
+  history.push({level,dir:c.wind_direction_10m});
+  if(history.length>50) history.shift();
 
-  water.classList.remove("low","mid","high");
+  localStorage.setItem("riverHistory", JSON.stringify(history));
 
-  if(level < 180) water.classList.add("low");
-  else if(level < 230) water.classList.add("mid");
-  else{
-    water.classList.add("high");
-    notify("🚨 Nivel alto del río");
-  }
+  chart.data.labels = history.map((_,i)=>i);
+  chart.data.datasets[0].data = history.map(h=>h.level);
+  chart.update();
 
-  let msg="✅ Normal";
-  if(level>260) msg="🚨 Crecida fuerte";
-  else if(level>220) msg="⚠️ Nivel alto";
-
-  document.getElementById("alert").innerText = msg;
-
-  if(data && data.current){
-    document.getElementById("temp").innerText = data.current.temperature_2m+"°C";
-    document.getElementById("wind").innerText = data.current.wind_speed_10m+" km/h";
-    document.getElementById("hum").innerText = data.current.relative_humidity_2m+"%";
-    document.getElementById("rain").innerText = data.current.precipitation+" mm";
-  }
+  document.getElementById("dominant").innerText = dominant();
+  document.getElementById("alert").innerText = sudestada(c.wind_direction_10m, c.wind_speed_10m);
 }
 
 update();
