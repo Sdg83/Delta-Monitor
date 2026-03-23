@@ -41,7 +41,8 @@ body::after{
   margin-bottom:15px;
 }
 
-/* MUELLE */
+/* ================= RÍO ================= */
+
 .river{
   position:relative;
   height:260px;
@@ -50,25 +51,62 @@ body::after{
   background:linear-gradient(to top,#6fb7d6,#3c7fa3);
 }
 
+/* AGUA */
 .water{
   position:absolute;
   bottom:0;
   width:100%;
   height:30%;
-  background:rgba(120,80,40,0.5);
   transition:1s;
+  background:#4da6ff;
 }
 
+/* colores */
+.water.low { background:#4da6ff; }
+.water.mid { background:#e6c84f; }
+.water.high{ background:#d9534f; }
+
+/* OLAS SUAVES */
+.water::after{
+  content:'';
+  position:absolute;
+  top:-10px;
+  left:0;
+  width:200%;
+  height:20px;
+  background:rgba(255,255,255,0.2);
+  animation:wave 4s linear infinite;
+  border-radius:50%;
+}
+
+@keyframes wave{
+  from{ transform:translateX(0); }
+  to{ transform:translateX(-50%); }
+}
+
+/* MUELLE */
 .dock{
   position:absolute;
   right:30px;
   bottom:0;
 }
 
-.post{
-  width:10px;
-  height:200px;
-  background:#8b5a2b;
+.deck{
+  width:100px;
+  height:15px;
+  background:repeating-linear-gradient(
+    90deg,
+    #8b5a2b,
+    #8b5a2b 8px,
+    #6e4520 8px,
+    #6e4520 16px
+  );
+}
+
+.legs{
+  width:100px;
+  height:40px;
+  background:#5a3a1f;
 }
 
 .ladder{
@@ -78,12 +116,13 @@ body::after{
 }
 
 .ladder div{
-  width:20px;
-  height:4px;
+  width:18px;
+  height:3px;
   background:#3b2a1a;
-  margin:10px 0;
+  margin:6px 0;
 }
 
+/* TEXTO */
 .value{
   position:absolute;
   top:20px;
@@ -129,35 +168,18 @@ body::after{
 
 <div class="container">
 
-<h2>🌊 DELTA Monitor PRO </h2>
+<h2>🌊 DELTA Monitor PRO</h2>
 
-<!-- MUELLE -->
 <div class="card">
   <div class="river">
-
-  <div class="water" id="water"></div>
-  <div class="waves"></div>
-
-  <!-- MUELLE REAL -->
-  <div class="dock">
-    <div class="deck"></div>
-    <div class="legs"></div>
-    <div class="ladder">
-      <div></div><div></div><div></div><div></div>
-    </div>
-  </div>
-
-  <div class="value" id="level">--</div>
-  <div class="info" id="info">--</div>
-
-</div>
 
     <div class="water" id="water"></div>
 
     <div class="dock">
-      <div class="post"></div>
+      <div class="deck"></div>
+      <div class="legs"></div>
       <div class="ladder">
-        <div></div><div></div><div></div><div></div><div></div>
+        <div></div><div></div><div></div><div></div>
       </div>
     </div>
 
@@ -169,29 +191,11 @@ body::after{
   <div class="alert" id="alert"></div>
 </div>
 
-<!-- DATOS -->
 <div class="grid">
-
-  <div class="item">
-    🌡️ Temp
-    <div class="big" id="temp">--</div>
-  </div>
-
-  <div class="item">
-    💨 Viento
-    <div class="big" id="wind">--</div>
-  </div>
-
-  <div class="item">
-    💧 Humedad
-    <div class="big" id="hum">--</div>
-  </div>
-
-  <div class="item">
-    🌧️ Lluvia
-    <div class="big" id="rain">--</div>
-  </div>
-
+  <div class="item">🌡️ Temp<div class="big" id="temp">--</div></div>
+  <div class="item">💨 Viento<div class="big" id="wind">--</div></div>
+  <div class="item">💧 Humedad<div class="big" id="hum">--</div></div>
+  <div class="item">🌧️ Lluvia<div class="big" id="rain">--</div></div>
 </div>
 
 </div>
@@ -200,19 +204,15 @@ body::after{
 let lastLevel=null;
 let lastTime=null;
 
-// API REAL
 async function getData(){
   try{
     const res = await fetch("https://api.open-meteo.com/v1/forecast?latitude=-34.426&longitude=-58.579&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,pressure_msl");
-
     return await res.json();
-
   }catch(e){
     return null;
   }
 }
 
-// NIVEL (estimado)
 function calcLevel(data){
   if(!data || !data.current) return lastLevel || 150;
 
@@ -223,9 +223,7 @@ function calcLevel(data){
   return 140 + (1015-p)*2 + r*10 + (w>25?15:0);
 }
 
-// UPDATE
 async function update(){
-
   const data = await getData();
 
   const level = calcLevel(data);
@@ -246,20 +244,21 @@ async function update(){
   lastLevel=level;
   lastTime=now;
 
-  // UI río
   document.getElementById("level").innerText = Math.round(level)+" cm";
   document.getElementById("info").innerText = trend+" | "+speed.toFixed(1)+" cm/h";
+
   const water = document.getElementById("water");
 
-const pct = Math.min(level/300*100,100);
-water.style.height = pct + "%";
+  if(water){
+    const pct = Math.min(level/300*100,100);
+    water.style.height = pct + "%";
 
-// colores según nivel
-water.classList.remove("low","mid","high");
+    water.classList.remove("low","mid","high");
 
-if(level < 180) water.classList.add("low");
-else if(level < 230) water.classList.add("mid");
-else water.classList.add("high");
+    if(level < 180) water.classList.add("low");
+    else if(level < 230) water.classList.add("mid");
+    else water.classList.add("high");
+  }
 
   let msg="✅ Normal";
   if(level>260) msg="🚨 Crecida fuerte";
@@ -268,89 +267,14 @@ else water.classList.add("high");
 
   document.getElementById("alert").innerText = msg;
 
-  // datos clima
   if(data && data.current){
     document.getElementById("temp").innerText = data.current.temperature_2m+"°C";
     document.getElementById("wind").innerText = data.current.wind_speed_10m+" km/h";
     document.getElementById("hum").innerText = data.current.relative_humidity_2m+"%";
     document.getElementById("rain").innerText = data.current.precipitation+" mm";
   }
-  /* AGUA BASE */
-.water{
-  position:absolute;
-  bottom:0;
-  width:100%;
-  height:30%;
-  transition:1s;
-  background:#4da6ff;
 }
 
-/* COLORES POR NIVEL */
-.water.low { background:#4da6ff; }      /* azul */
-.water.mid { background:#e6c84f; }      /* amarillo */
-.water.high{ background:#d9534f; }      /* rojo */
-
-/* ONDAS */
-.waves{
-  position:absolute;
-  bottom:0;
-  width:200%;
-  height:40px;
-  background:rgba(255,255,255,0.2);
-  animation:wave 4s linear infinite;
-  border-radius:50%;
-}
-
-@keyframes wave{
-  from{ transform:translateX(0); }
-  to{ transform:translateX(-50%); }
-}
-
-/* MUELLE MÁS REAL */
-.dock{
-  position:absolute;
-  right:40px;
-  bottom:40px;
-}
-
-/* piso */
-.deck{
-  width:120px;
-  height:20px;
-  background:repeating-linear-gradient(
-    90deg,
-    #8b5a2b,
-    #8b5a2b 10px,
-    #6e4520 10px,
-    #6e4520 20px
-  );
-  border-radius:4px;
-}
-
-/* patas */
-.legs{
-  width:120px;
-  height:40px;
-  background:linear-gradient(#6e4520,#4b2e16);
-}
-
-/* escalera */
-.ladder{
-  position:absolute;
-  left:-25px;
-  bottom:-5px;
-}
-
-.ladder div{
-  width:20px;
-  height:4px;
-  background:#3b2a1a;
-  margin:8px 0;
-}
-
-}
-
-// iniciar
 update();
 setInterval(update,10000);
 </script>
