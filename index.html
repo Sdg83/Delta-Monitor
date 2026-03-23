@@ -1,100 +1,190 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RíoWatch</title>
+
+<style>
+body {
+  margin:0;
+  font-family:Arial;
+  color:white;
+  background:url('SATELITAL.jpg') center/cover no-repeat fixed;
+}
+
+body::after{
+  content:'';
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.6);
+}
+
+.container{
+  position:relative;
+  z-index:2;
+  padding:20px;
+}
+
+/* CARD */
+.card{
+  background:rgba(0,0,0,0.5);
+  padding:15px;
+  border-radius:10px;
+}
+
+/* MUELLE */
+.river{
+  position:relative;
+  height:300px;
+  border-radius:10px;
+  overflow:hidden;
+  background:linear-gradient(to top,#6fb7d6,#3c7fa3);
+}
+
+.water{
+  position:absolute;
+  bottom:0;
+  width:100%;
+  height:30%;
+  background:rgba(120,80,40,0.5);
+  transition:1s;
+}
+
+.dock{
+  position:absolute;
+  right:40px;
+  bottom:0;
+}
+
+.post{
+  width:10px;
+  height:200px;
+  background:#8b5a2b;
+}
+
+.ladder{
+  position:absolute;
+  left:-25px;
+  bottom:0;
+}
+
+.ladder div{
+  width:20px;
+  height:4px;
+  background:#3b2a1a;
+  margin:10px 0;
+}
+
+.value{
+  position:absolute;
+  top:20px;
+  left:20px;
+  font-size:3rem;
+}
+
+.info{
+  position:absolute;
+  top:80px;
+  left:20px;
+  font-size:1.2rem;
+}
+
+.alert{
+  margin-top:10px;
+  font-weight:bold;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<h2>🌊 RíoWatch</h2>
+
+<div class="card">
+<div class="river">
+
+<div class="water" id="water"></div>
+
+<div class="dock">
+  <div class="post"></div>
+  <div class="ladder">
+    <div></div><div></div><div></div><div></div><div></div>
+  </div>
+</div>
+
+<div class="value" id="level">--</div>
+<div class="info" id="info">Cargando...</div>
+
+</div>
+
+<div class="alert" id="alert"></div>
+
+</div>
+
+</div>
+
 <script>
-let lastLevel = null;
-let lastTime = null;
+let lastLevel=null;
+let lastTime=null;
 
-// 📡 OBTENER DATOS REALES MEJORADOS
-async function getRealLevel() {
-  const lat = -34.426;
-  const lon = -58.579;
+// DATOS REALES
+async function getLevel(){
+  try{
+    const res = await fetch("https://api.open-meteo.com/v1/forecast?latitude=-34.426&longitude=-58.579&current=pressure_msl,precipitation,wind_speed_10m");
 
-  try {
-    // clima actual
-    const weather = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=pressure_msl,precipitation,wind_speed_10m`);
-    const w = await weather.json();
+    const data = await res.json();
 
-    const pressure = w.current.pressure_msl;
-    const rain = w.current.precipitation;
-    const wind = w.current.wind_speed_10m;
+    const p = data.current.pressure_msl || 1015;
+    const r = data.current.precipitation || 0;
+    const w = data.current.wind_speed_10m || 0;
 
-    // modelo base del río (ajustado al delta)
-    let baseLevel = 140;
+    return 140 + (1015-p)*2 + r*10 + (w>25?15:0);
 
-    // 📈 efectos reales
-    const pressureEffect = (1015 - pressure) * 2.5;   // baja presión = sube río
-    const rainEffect = rain * 8;                      // lluvia suma
-    const windEffect = wind > 25 ? 15 : 0;            // viento fuerte empuja agua
-
-    const level = baseLevel + pressureEffect + rainEffect + windEffect;
-
-    return level;
-
-  } catch (e) {
-    console.log("fallback activo");
+  }catch(e){
     return lastLevel || 150;
   }
 }
 
-// 🔔 NOTIFICACIÓN
-function notify(msg){
-  if(Notification.permission==="granted"){
-    new Notification(msg);
-  }
-}
-
-// 🚀 UPDATE PRINCIPAL
-async function update() {
-  const level = await getRealLevel();
+// UPDATE
+async function update(){
+  const level = await getLevel();
   const now = Date.now();
 
   let trend="→ Estable";
   let speed=0;
 
   if(lastLevel!==null){
-    const diff = level - lastLevel;
+    const diff = level-lastLevel;
     const hours = (now-lastTime)/3600000;
-    speed = diff / hours;
+    speed = diff/hours;
 
     if(diff>2) trend="⬆️ Subiendo";
-    else if(diff<-2) trend="⬇️ Bajando";
+    if(diff<-2) trend="⬇️ Bajando";
   }
 
-  lastLevel = level;
-  lastTime = now;
+  lastLevel=level;
+  lastTime=now;
 
-  // UI
-  document.getElementById("level").textContent = level.toFixed(0)+" cm";
-  document.getElementById("info").textContent =
-    trend+" | "+speed.toFixed(1)+" cm/h";
+  document.getElementById("level").innerText = Math.round(level)+" cm";
+  document.getElementById("info").innerText = trend+" | "+speed.toFixed(1)+" cm/h";
 
-  document.getElementById("water").style.height =
-    Math.min(level/300*100,100)+"%";
+  document.getElementById("water").style.height = Math.min(level/300*100,100)+"%";
 
-  // 🚨 ALERTAS INTELIGENTES
-  let alertMsg="";
-  
-  if(level > 260){
-    alertMsg="🚨 CRECIDA FUERTE";
-    notify(alertMsg);
-  }
-  else if(level > 220){
-    alertMsg="⚠️ Nivel alto";
-  }
-  else if(speed > 10){
-    alertMsg="⚠️ Subida rápida";
-  }
-  else{
-    alertMsg="✅ Normal";
-  }
+  let msg="✅ Normal";
 
-  document.getElementById("alert").textContent = alertMsg;
+  if(level>260) msg="🚨 Crecida fuerte";
+  else if(level>220) msg="⚠️ Nivel alto";
+  else if(speed>10) msg="⚠️ Subida rápida";
+
+  document.getElementById("alert").innerText = msg;
 }
 
-// permisos iPhone
-if("Notification" in window){
-  Notification.requestPermission();
-}
-
-// auto refresh
+// iniciar
 update();
-setInterval(update, 300000); // cada 5 min
+setInterval(update,10000);
 </script>
+
+</body>
+</html>
