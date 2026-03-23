@@ -9,39 +9,140 @@
 body{
   margin:0;
   font-family:Arial;
-  background:#050d14;
   color:#e0f0ff;
+  background:url('IMG_9678.jpeg') center/cover no-repeat fixed;
+}
+
+/* overlay oscuro */
+body::after{
+  content:'';
+  position:fixed;
+  inset:0;
+  background:rgba(5,13,20,0.65);
+  z-index:0;
 }
 
 .container{
+  position:relative;
+  z-index:2;
   padding:15px;
   max-width:900px;
   margin:auto;
 }
 
 .card{
-  background:#0a1825;
+  background:rgba(0,0,0,0.55);
   border-radius:10px;
   padding:15px;
   margin-bottom:15px;
 }
 
+/* ESCENA */
 .river{
   position:relative;
-  height:260px;
+  height:320px;
   border-radius:10px;
   overflow:hidden;
   background:linear-gradient(to top,#6fb7d6,#3c7fa3);
 }
 
+/* AGUA */
 .water{
   position:absolute;
   bottom:0;
   width:100%;
   transition:1s;
-  background:#4da6ff;
 }
 
+.water.low{ background:#4da6ff; }
+.water.mid{ background:#e6c84f; }
+.water.high{ background:#d9534f; }
+
+/* ONDAS */
+.waves{
+  position:absolute;
+  bottom:0;
+  width:200%;
+  height:50px;
+  background:rgba(255,255,255,0.2);
+  animation:wave 4s linear infinite;
+  border-radius:40%;
+}
+
+@keyframes wave{
+  from{transform:translateX(0);}
+  to{transform:translateX(-50%);}
+}
+
+/* MUELLE GRANDE Y REAL */
+.dock{
+  position:absolute;
+  right:60px;
+  bottom:0;
+}
+
+/* piso */
+.deck{
+  width:160px;
+  height:25px;
+  background:repeating-linear-gradient(
+    90deg,
+    #8b5a2b,
+    #8b5a2b 12px,
+    #6e4520 12px,
+    #6e4520 24px
+  );
+  border-radius:4px;
+}
+
+/* patas */
+.legs{
+  width:160px;
+  height:120px;
+  background:linear-gradient(#6e4520,#3e2613);
+}
+
+/* ESCALERA CON ESCALA REAL */
+.ladder{
+  position:absolute;
+  left:-30px;
+  bottom:0;
+}
+
+.step{
+  width:22px;
+  height:4px;
+  background:#3b2a1a;
+  margin:10px 0;
+  position:relative;
+}
+
+/* MARCAS DE CM */
+.step::after{
+  content:attr(data-cm);
+  position:absolute;
+  left:30px;
+  top:-5px;
+  font-size:10px;
+  color:#fff;
+}
+
+/* TEXTO */
+.value{
+  position:absolute;
+  top:20px;
+  left:20px;
+  font-size:2.5rem;
+  font-weight:900;
+}
+
+.info{
+  position:absolute;
+  top:70px;
+  left:20px;
+}
+
+/* GRID */
 .grid{
   display:grid;
   grid-template-columns:1fr 1fr;
@@ -49,14 +150,18 @@ body{
 }
 
 .item{
-  background:#0f2233;
+  background:rgba(0,0,0,0.5);
   padding:10px;
   border-radius:8px;
   text-align:center;
 }
 
 .big{font-size:1.6rem;}
-.alert{font-weight:bold;margin-top:10px;}
+
+.alert{
+  margin-top:10px;
+  font-weight:bold;
+}
 </style>
 </head>
 
@@ -68,10 +173,31 @@ body{
 
 <div class="card">
   <div class="river">
+
     <div class="water" id="water"></div>
-    <div style="position:absolute;top:20px;left:20px;font-size:2rem" id="level">Cargando...</div>
-    <div style="position:absolute;top:60px;left:20px" id="source"></div>
+    <div class="waves"></div>
+
+    <!-- MUELLE -->
+    <div class="dock">
+      <div class="deck"></div>
+      <div class="legs"></div>
+
+      <div class="ladder">
+        <div class="step" data-cm="0"></div>
+        <div class="step" data-cm="50"></div>
+        <div class="step" data-cm="100"></div>
+        <div class="step" data-cm="150"></div>
+        <div class="step" data-cm="200"></div>
+        <div class="step" data-cm="250"></div>
+        <div class="step" data-cm="300"></div>
+      </div>
+    </div>
+
+    <div class="value" id="level">--</div>
+    <div class="info" id="info">Cargando...</div>
+
   </div>
+
   <div class="alert" id="alert"></div>
 </div>
 
@@ -87,13 +213,11 @@ body{
 <script>
 let lastLevel=null;
 
-/* DIRECCION */
 function dirLabel(d){
   const dirs=["N","NE","E","SE","S","SO","O","NO"];
   return dirs[Math.round(d/45)%8];
 }
 
-/* WEATHER */
 async function getWeather(){
   try{
     const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=-34.426&longitude=-58.579&current=temperature_2m,wind_speed_10m,wind_direction_10m,pressure_msl");
@@ -103,31 +227,29 @@ async function getWeather(){
   }
 }
 
-/* NIVEL ESTIMADO (SIEMPRE FUNCIONA) */
 function calcLevel(p,w){
   return 140 + (1015-p)*2 + (w>25?15:0);
 }
 
-/* UPDATE */
 async function update(){
 
   const data = await getWeather();
-
-  if(!data || !data.current){
-    document.getElementById("level").innerText="Sin datos";
-    return;
-  }
+  if(!data || !data.current) return;
 
   const c = data.current;
-
   const level = calcLevel(c.pressure_msl, c.wind_speed_10m);
 
   document.getElementById("level").innerText = Math.round(level)+" cm";
-  document.getElementById("source").innerText = "Estimado";
 
-  /* AGUA */
+  /* AGUA EXACTA */
   const water = document.getElementById("water");
-  water.style.height = Math.min(level/300*100,100)+"%";
+  const pct = Math.min(level/300*100,100);
+  water.style.height = pct+"%";
+
+  water.className="water";
+  if(level<180) water.classList.add("low");
+  else if(level<230) water.classList.add("mid");
+  else water.classList.add("high");
 
   /* CLIMA */
   document.getElementById("temp").innerText = c.temperature_2m+"°C";
@@ -140,19 +262,18 @@ async function update(){
     if(level>lastLevel+2) trend="⬆️";
     else if(level<lastLevel-2) trend="⬇️";
   }
-
   lastLevel=level;
   document.getElementById("trend").innerText = trend;
 
   /* ALERTAS */
-  let alert="Normal";
+  let alert="✅ Normal";
 
   if(c.wind_direction_10m>100 && c.wind_direction_10m<160 && c.wind_speed_10m>20){
     alert="🌬️ Sudestada";
   }
 
   if(level>230){
-    alert="🚨 Nivel alto";
+    alert="🚨 Crecida";
   }
 
   document.getElementById("alert").innerText = alert;
