@@ -13,7 +13,6 @@ body{
   background:url('IMG_9678.jpeg') center/cover no-repeat fixed;
 }
 
-/* overlay oscuro */
 body::after{
   content:'';
   position:fixed;
@@ -37,7 +36,7 @@ body::after{
   margin-bottom:15px;
 }
 
-/* ESCENA */
+/* RIO */
 .river{
   position:relative;
   height:320px;
@@ -46,7 +45,6 @@ body::after{
   background:linear-gradient(to top,#6fb7d6,#3c7fa3);
 }
 
-/* AGUA */
 .water{
   position:absolute;
   bottom:0;
@@ -58,7 +56,6 @@ body::after{
 .water.mid{ background:#e6c84f; }
 .water.high{ background:#d9534f; }
 
-/* ONDAS */
 .waves{
   position:absolute;
   bottom:0;
@@ -66,7 +63,6 @@ body::after{
   height:50px;
   background:rgba(255,255,255,0.2);
   animation:wave 4s linear infinite;
-  border-radius:40%;
 }
 
 @keyframes wave{
@@ -74,35 +70,25 @@ body::after{
   to{transform:translateX(-50%);}
 }
 
-/* MUELLE GRANDE Y REAL */
+/* MUELLE */
 .dock{
   position:absolute;
   right:60px;
   bottom:0;
 }
 
-/* piso */
 .deck{
   width:160px;
   height:25px;
-  background:repeating-linear-gradient(
-    90deg,
-    #8b5a2b,
-    #8b5a2b 12px,
-    #6e4520 12px,
-    #6e4520 24px
-  );
-  border-radius:4px;
+  background:repeating-linear-gradient(90deg,#8b5a2b 0,#8b5a2b 12px,#6e4520 12px,#6e4520 24px);
 }
 
-/* patas */
 .legs{
   width:160px;
   height:120px;
   background:linear-gradient(#6e4520,#3e2613);
 }
 
-/* ESCALERA CON ESCALA REAL */
 .ladder{
   position:absolute;
   left:-30px;
@@ -117,17 +103,14 @@ body::after{
   position:relative;
 }
 
-/* MARCAS DE CM */
 .step::after{
   content:attr(data-cm);
   position:absolute;
   left:30px;
-  top:-5px;
   font-size:10px;
-  color:#fff;
 }
 
-/* TEXTO */
+/* TEXTOS */
 .value{
   position:absolute;
   top:20px;
@@ -156,11 +139,24 @@ body::after{
   text-align:center;
 }
 
-.big{font-size:1.6rem;}
+.big{font-size:1.4rem;}
 
-.alert{
-  margin-top:10px;
-  font-weight:bold;
+.alert{margin-top:10px;font-weight:bold;}
+
+/* PRONOSTICO */
+.forecast{
+  display:flex;
+  overflow-x:auto;
+  gap:8px;
+}
+
+.fitem{
+  background:rgba(0,0,0,0.5);
+  padding:6px;
+  border-radius:6px;
+  min-width:60px;
+  text-align:center;
+  font-size:12px;
 }
 </style>
 </head>
@@ -173,15 +169,12 @@ body::after{
 
 <div class="card">
   <div class="river">
-
     <div class="water" id="water"></div>
     <div class="waves"></div>
 
-    <!-- MUELLE -->
     <div class="dock">
       <div class="deck"></div>
       <div class="legs"></div>
-
       <div class="ladder">
         <div class="step" data-cm="0"></div>
         <div class="step" data-cm="50"></div>
@@ -189,13 +182,11 @@ body::after{
         <div class="step" data-cm="150"></div>
         <div class="step" data-cm="200"></div>
         <div class="step" data-cm="250"></div>
-        <div class="step" data-cm="300"></div>
       </div>
     </div>
 
     <div class="value" id="level">--</div>
     <div class="info" id="info">Cargando...</div>
-
   </div>
 
   <div class="alert" id="alert"></div>
@@ -203,9 +194,16 @@ body::after{
 
 <div class="grid">
   <div class="item">🌡️ Temp<div class="big" id="temp"></div></div>
+  <div class="item">💧 Humedad<div class="big" id="hum"></div></div>
   <div class="item">💨 Viento<div class="big" id="wind"></div></div>
   <div class="item">🧭 Dirección<div class="big" id="dir"></div></div>
+  <div class="item">🌧️ Lluvia<div class="big" id="rain"></div></div>
   <div class="item">📊 Tendencia<div class="big" id="trend"></div></div>
+</div>
+
+<div class="card">
+  <h3>📅 Pronóstico próximas horas</h3>
+  <div class="forecast" id="forecast"></div>
 </div>
 
 </div>
@@ -219,12 +217,8 @@ function dirLabel(d){
 }
 
 async function getWeather(){
-  try{
-    const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=-34.426&longitude=-58.579&current=temperature_2m,wind_speed_10m,wind_direction_10m,pressure_msl");
-    return await r.json();
-  }catch{
-    return null;
-  }
+  const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=-34.426&longitude=-58.579&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,wind_direction_10m,pressure_msl&hourly=temperature_2m,precipitation_probability&forecast_days=2");
+  return await r.json();
 }
 
 function calcLevel(p,w){
@@ -234,49 +228,56 @@ function calcLevel(p,w){
 async function update(){
 
   const data = await getWeather();
-  if(!data || !data.current) return;
-
   const c = data.current;
-  const level = calcLevel(c.pressure_msl, c.wind_speed_10m);
+
+  const level = calcLevel(c.pressure_msl,c.wind_speed_10m);
 
   document.getElementById("level").innerText = Math.round(level)+" cm";
 
-  /* AGUA EXACTA */
   const water = document.getElementById("water");
-  const pct = Math.min(level/300*100,100);
-  water.style.height = pct+"%";
+  water.style.height = Math.min(level/300*100,100)+"%";
 
   water.className="water";
   if(level<180) water.classList.add("low");
   else if(level<230) water.classList.add("mid");
   else water.classList.add("high");
 
-  /* CLIMA */
   document.getElementById("temp").innerText = c.temperature_2m+"°C";
+  document.getElementById("hum").innerText = c.relative_humidity_2m+"%";
   document.getElementById("wind").innerText = c.wind_speed_10m+" km/h";
   document.getElementById("dir").innerText = dirLabel(c.wind_direction_10m);
+  document.getElementById("rain").innerText = c.precipitation+" mm";
 
-  /* TENDENCIA */
   let trend="→";
   if(lastLevel!==null){
     if(level>lastLevel+2) trend="⬆️";
     else if(level<lastLevel-2) trend="⬇️";
   }
   lastLevel=level;
-  document.getElementById("trend").innerText = trend;
+  document.getElementById("trend").innerText=trend;
 
-  /* ALERTAS */
   let alert="✅ Normal";
-
   if(c.wind_direction_10m>100 && c.wind_direction_10m<160 && c.wind_speed_10m>20){
     alert="🌬️ Sudestada";
   }
-
   if(level>230){
     alert="🚨 Crecida";
   }
+  document.getElementById("alert").innerText=alert;
 
-  document.getElementById("alert").innerText = alert;
+  /* PRONOSTICO */
+  const fc = document.getElementById("forecast");
+  fc.innerHTML="";
+
+  for(let i=0;i<12;i++){
+    fc.innerHTML += `
+      <div class="fitem">
+        ${data.hourly.time[i].slice(11,16)}<br>
+        ${data.hourly.temperature_2m[i]}°<br>
+        ${data.hourly.precipitation_probability[i]}%
+      </div>
+    `;
+  }
 }
 
 update();
